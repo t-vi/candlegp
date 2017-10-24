@@ -135,3 +135,12 @@ class GPModel(torch.nn.Module):
         """
         pred_f_mean, pred_f_var = self.predict_f(Xnew)
         return self.likelihood.predict_density(pred_f_mean, pred_f_var, Ynew)
+
+    def _repr_html_(self):
+        s =  'Model {}<ul>'.format(type(self).__name__)
+        for n,c in self.named_children():
+            s += '<li>{}: {}</li>'.format(n, type(c).__name__)
+        s += '</ul><table><tr><th>Parameter</th><th>Value</th><th>Prior</th><th>ParamType</th></tr><tr><td>'
+        s += '</td></tr><tr><td>'.join(['</td><td>'.join((n,str(p.get().data.cpu().numpy()),str(p.prior),type(p).__name__)) for n,p in self.named_parameters()])
+        s += '</td></tr></table>'
+        return s

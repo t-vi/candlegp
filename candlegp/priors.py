@@ -43,7 +43,7 @@ class Gaussian(Prior):
         return self.mu + (self.var**0.5) * Variable(torch.randn(*shape))
 
     def __str__(self):
-        return "N("+str(self.mu) + "," + str(self.var) + ")"
+        return "N("+str(self.mu.data.cpu().numpy()) + "," + str(self.var.data.cpu().numpy()) + ")"
 
 
 class LogNormal(Prior):
@@ -59,7 +59,7 @@ class LogNormal(Prior):
         return (self.mu + (self.var**0.5) * Variable(torch.randn(*shape))).exp()
 
     def __str__(self):
-        return "logN("+str(self.mu) + "," + str(self.var) + ")"
+        return "logN("+str(self.mu.data.cpu().numpy()) + "," + str(self.var.data.cpu().numpy()) + ")"
 
 
 class Gamma(Prior):
@@ -75,7 +75,7 @@ class Gamma(Prior):
         return Variable(torch.Tensor(numpy.random.gamma(self.shape, self.scale, size=shape)))
 
     def __str__(self):
-        return "Ga("+str(self.shape) + "," + str(self.scale) + ")"
+        return "Ga("+str(self.shape.data.cpu().numpy()) + "," + str(self.scale.data.cpu().numpy()) + ")"
 
 
 class Laplace(Prior):
@@ -91,7 +91,7 @@ class Laplace(Prior):
         return Variable(torch.Tensor(numpy.random.laplace(self.mu, self.sigma, size=shape)))
 
     def __str__(self):
-        return "Lap.("+str(self.mu) + "," + str(self.sigma) + ")"
+        return "Lap.("+str(self.mu.data.cpu().numpy()) + "," + str(self.sigma.data.cpu().numpy()) + ")"
 
 
 class Beta(Prior):
@@ -107,7 +107,7 @@ class Beta(Prior):
         return Variable(torch.Tensor(self.a, self.b, size=shape))
 
     def __str__(self):
-        return "Beta(" + str(self.a) + "," + str(self.b) + ")"
+        return "Beta(" + str(self.a.data.cpu().numpy()) + "," + str(self.b.data.cpu().numpy()) + ")"
 
 
 class Uniform(Prior):
@@ -127,4 +127,4 @@ class Uniform(Prior):
                 (self.upper - self.lower)*torch.rand(*shape))
 
     def __str__(self):
-        return "U("+str(self.lower) + "," + str(self.upper) + ")"
+        return "U("+str(self.lower.data.cpu().numpy()) + "," + str(self.upper.data.cpu().numpy()) + ")"
