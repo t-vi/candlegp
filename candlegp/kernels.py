@@ -109,8 +109,8 @@ class Kern(torch.nn.Module):
         fXcovt = tf.concat((Xcov[0, :-1, :, :], Xcov[1, :-1, :, :]), 2)  # NxDx2D
         fXcovb = tf.concat((tf.transpose(Xcov[1, :-1, :, :], (0, 2, 1)), Xcov[0, 1:, :, :]), 2)
         fXcov = tf.concat((fXcovt, fXcovb), 1)
-        return mvnquad(lambda x: self.K(x[:, :D], Z).unsqeeze(2) *
-                                 x[:, D:].unsqeeze(1),
+        return mvnquad(lambda x: self.K(x[:, :D], Z).unsqueeze(2) *
+                                 x[:, D:].unsqueeze(1),
                        fXmu, fXcov, self.num_gauss_hermite_points,
                        2 * D, Dout=(M, D))
 

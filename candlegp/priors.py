@@ -19,9 +19,9 @@ from torch.autograd import Variable
 
 from . import densities
 
-def wrap(x, **argd):
+def wrap(x, ttype=torch.Tensor, **argd):
     if numpy.isscalar(x):
-        x = Variable(torch.Tensor([x]),**argd)
+        x = Variable(ttype([x]),**argd)
     elif isinstance(x, [torch.Tensor, torch.DoubleTensor]):
         x = Variable(x, **argd)
     return x
@@ -31,24 +31,24 @@ class Prior:
 
 # these should be ocnverted to use torch.densities
 class Gaussian(Prior):
-    def __init__(self, mu, var):
+    def __init__(self, mu, var, ttype=torch.Tensor):
         Prior.__init__(self)
-        self.mu = wrap(mu)
-        self.var = wrap(var)
+        self.mu = wrap(mu, ttype=ttype)
+        self.var = wrap(var, ttype=ttype)
 
     def logp(self, x):
         return densities.gaussian(x, self.mu, self.var).sum()
 
     def sample(self, shape=(1,)):
-        return self.mu + (self.var**0.5) * Variable(torch.randn(*shape))
+        return self.mu + (self.var**0.5) * Variable(self.mu.data.new(*shape).normal_())
 
     def __str__(self):
         return "N("+str(self.mu.data.cpu().numpy()) + "," + str(self.var.data.cpu().numpy()) + ")"
 
 
 class LogNormal(Prior):
-    def __init__(self, mu, var):
-        Prior.__init__(self)           
+    def __init__(self, mu, var, ttype=torch.Tensor):
+        Prior.__init__(self)   
         self.mu = wrap(mu)
         self.var = wrap(var)
 
@@ -63,58 +63,59 @@ class LogNormal(Prior):
 
 
 class Gamma(Prior):
-    def __init__(self, shape, scale):
+    def __init__(self, shape, scale, ttype=torch.Tensor):
         Prior.__init__(self)
-        self.shape = wrap(shape)
-        self.scale = wrap(scale)
+        self.shape = wrap(shape, ttype=ttype)
+        self.scale = wrap(scale, ttype=ttype)
 
     def logp(self, x):
         return densities.gamma(self.shape, self.scale, x).sum()
 
     def sample(self, shape=(1,)):
-        return Variable(torch.Tensor(numpy.random.gamma(self.shape, self.scale, size=shape)))
+        return Variable(type(self.shape.data)(numpy.random.gamma(self.shape, self.scale, size=shape)))
 
     def __str__(self):
         return "Ga("+str(self.shape.data.cpu().numpy()) + "," + str(self.scale.data.cpu().numpy()) + ")"
 
 
 class Laplace(Prior):
-    def __init__(self, mu, sigma):
+    def __init__(self, mu, sigma, ttype=torch.Tensor):
         Prior.__init__(self)
-        self.mu = wrap(mu)
-        self.sigma = wrap(sigma)
+        self.mu = wrap(mu, ttype=ttype)
+        self.sigma = wrap(sigma, ttype=ttype)
 
     def logp(self, x):
         return densities.laplace(self.mu, self.sigma, x).sum()
 
     def sample(self, shape=(1,)):
-        return Variable(torch.Tensor(numpy.random.laplace(self.mu, self.sigma, size=shape)))
+        return Variable(type(self.shape.data)(numpy.random.laplace(self.mu, self.sigma, size=shape)))
 
     def __str__(self):
         return "Lap.("+str(self.mu.data.cpu().numpy()) + "," + str(self.sigma.data.cpu().numpy()) + ")"
 
 
 class Beta(Prior):
-    def __init__(self, a, b):
+    def __init__(self, a, b, ttype=torch.Tensor):
         Prior.__init__(self)
-        self.a = wrap(a)
-        self.b = wrap(b)
+        self.a = wrap(a, ttype=ttype)
+        self.b = wrap(b, ttype=ttype)
 
     def logp(self, x):
         return tf.reduce_sum(densities.beta(self.a, self.b, x))
 
     def sample(self, shape=(1,)):
-        return Variable(torch.Tensor(self.a, self.b, size=shape))
+        BROKEN
+        return Variable(type(self.shape.data)(self.a, self.b, size=shape))
 
     def __str__(self):
         return "Beta(" + str(self.a.data.cpu().numpy()) + "," + str(self.b.data.cpu().numpy()) + ")"
 
 
 class Uniform(Prior):
-    def __init__(self, lower=0., upper=1.):
+    def __init__(self, lower=0., upper=1., ttype=torch.Tensor):
         Prior.__init__(self)
-        lower = wrap(lower)
-        upper = wrap(upper)
+        lower = wrap(lower, ttype=ttype)
+        upper = wrap(upper, ttype=ttype)
         self.log_height = - torch.log(upper - lower)
         self.lower, self.upper = lower, upper
 
@@ -123,8 +124,7 @@ class Uniform(Prior):
         return self.log_height * x.size(0)
 
     def sample(self, shape=(1,)):
-        return (self.lower +
-                (self.upper - self.lower)*torch.rand(*shape))
+        return self.lower +(self.upper - self.lower)*self.lower.new(*shape).normal_()
 
     def __str__(self):
         return "U("+str(self.lower.data.cpu().numpy()) + "," + str(self.upper.data.cpu().numpy()) + ")"

@@ -143,9 +143,9 @@ class Likelihood(torch.nn.Module):
 
 
 class Gaussian(Likelihood):
-    def __init__(self):
+    def __init__(self, ttype=torch.FloatTensor):
         Likelihood.__init__(self)
-        self.variance = parameter.PositiveParam(1.0)
+        self.variance = parameter.PositiveParam(1.0, ttype=ttype)
 
     def logp(self, F, Y):
         return densities.gaussian(F, Y, self.variance.get())

@@ -52,12 +52,13 @@ class GPModel(torch.nn.Module):
     >>> m.Y = Ynew
     """
 
-    def __init__(self, X, Y, kern, likelihood, mean_function, name=None):
+    def __init__(self, X, Y, kern, likelihood, mean_function, name=None, jitter_level=1e-6):
         super(GPModel, self).__init__()
         self.name = name
         self.mean_function = mean_function or mean_functions.Zero()
         self.kern = kern
         self.likelihood = likelihood
+        self.jitter_level = jitter_level
 
         if isinstance(X, numpy.ndarray):
             # X is a data matrix; each row represents one instance
@@ -109,14 +110,14 @@ class GPModel(torch.nn.Module):
         Produce samples from the posterior latent function(s) at the points
         Xnew.
         """
-        mu, var = self.predict_f_full_cov(Xnew, full_cov=True)
-        jitter = Variable(torch.eye(tf.shape(mu)[0])) * settings.numerics.jitter_level # TV-Todo: GPU-friendly
+        mu, var = self.predict_f(Xnew, full_cov=True)
+        jitter = Variable(torch.eye(mu.size(0), out=mu.data.new())) * self.jitter_level # TV-Todo: GPU-friendly
         samples = []
         for i in range(self.num_latent): # TV-Todo: batch??
-            L = torch.potrf(var[:, :, i] + jitter)
-            V = Variable(torch.randn(L.size(0), num_samples))
+            L = torch.potrf(var[:, :, i] + jitter, upper=False)
+            V = Variable(mu.data.new(L.size(0), num_samples).normal_())
             samples.append(mu[:, i:i + 1] + torch.matmul(L, V))
-        return torch.stack(samples, axis=0) # TV-Todo: transpose?
+        return torch.stack(samples, dim=0) # TV-Todo: transpose?
 
     def predict_y(self, Xnew):
         """

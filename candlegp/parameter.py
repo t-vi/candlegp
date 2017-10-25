@@ -32,11 +32,13 @@ class ParamWithPrior(torch.nn.Parameter):
     @abc.abstractstaticmethod
     def untransform(t, out=None):
         pass
-    def __new__(cls, val, prior=None):
+    def __init__(self, val, prior=None, ttype=torch.FloatTensor):
+        pass
+    def __new__(cls, val, prior=None, ttype=torch.FloatTensor): # for some reaosn unknown to me, it is impossible to pass a different tensor Type as ttype...
         if isinstance(val, torch.autograd.Variable):
             val = val.data
         elif numpy.isscalar(val):
-            val = torch.FloatTensor([val])
+            val = ttype([val])
         raw = cls.untransform(val)
         obj = super(ParamWithPrior, cls).__new__(cls, raw)
         obj.prior = prior
@@ -45,7 +47,7 @@ class ParamWithPrior(torch.nn.Parameter):
         if isinstance(t, torch.autograd.Variable):
             t = t.data
         elif numpy.isscalar(t):
-            t = torch.FloatTensor([t])
+            t = self.data.new(1).fill_(t)
         self.untransform(t, out=self.data)
     def get_prior(self):
         if self.prior is None:

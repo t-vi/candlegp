@@ -40,7 +40,7 @@ class GPR(GPModel):
         Y is a data matrix, size N x R
         kern, mean_function are appropriate GPflow objects
         """
-        likelihood = likelihoods.Gaussian()
+        likelihood = likelihoods.Gaussian(ttype=type(X.data))
         #X = DataHolder(X)
         #Y = DataHolder(Y)
         super(GPR,self).__init__(X, Y, kern, likelihood, mean_function, **kwargs)
@@ -55,7 +55,7 @@ class GPR(GPModel):
             \log p(Y | theta).
 
         """
-        K = self.kern.K(self.X) + Variable(torch.eye(self.X.size(0))) * self.likelihood.variance.get()
+        K = self.kern.K(self.X) + Variable(torch.eye(self.X.size(0),out=self.X.data.new())) * self.likelihood.variance.get()
         L = torch.potrf(K, upper=False)
         m = self.mean_function(self.X)
         return densities.multivariate_normal(self.Y, m, L)
@@ -74,14 +74,14 @@ class GPR(GPModel):
 
         """
         Kx = self.kern.K(self.X, Xnew)
-        K = self.kern.K(self.X) + Variable(torch.eye(self.X.size(0))) * self.likelihood.variance.get()
+        K = self.kern.K(self.X) + Variable(torch.eye(self.X.size(0),out=self.X.data.new())) * self.likelihood.variance.get()
         L = torch.potrf(K, upper=False)
         A,_ = torch.gesv(Kx, L)  # could use triangular solve, note gesv has B first, then A in AX=B
         V,_ = torch.gesv(self.Y - self.mean_function(self.X),L) # could use triangular solve
         fmean = torch.mm(A.t(), V) + self.mean_function(Xnew)
         if full_cov:
             fvar = self.kern.K(Xnew) - torch.mm(A.t(), A)
-            fvar = fvar.unsqeeze(2).expand(fvar.size(0), fvar.size(1), self.Y.size(1))
+            fvar = fvar.unsqueeze(2).expand(fvar.size(0), fvar.size(1), self.Y.size(1))
         else:
             fvar = self.kern.Kdiag(Xnew) - (A**2).sum(0)
             fvar = fvar.view(-1,1)

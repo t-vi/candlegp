@@ -18,8 +18,8 @@ import torch
 from torch.autograd import Variable
 import numpy
 
-INF = torch.Tensor([100000]).exp()
 def is_finite(x):
+    INF = x.data.new(1).fill_(numpy.inf)
     if isinstance(x, Variable):
         return Variable((x.data<INF) & (x.data > -INF))
     else:
@@ -59,7 +59,7 @@ def hmc_sample(model, num_samples, epsilon, lmin=1, lmax=2, thin=1, burn=0):
             xs_prev = [p.data.clone() for p in model.parameters()]
             grads_prev = grads
             logprob_prev = logprob
-            ps_init = [Variable(torch.randn(*p.size())) for p in model.parameters()]
+            ps_init = [Variable(xs_prev[0].new(*p.size()).normal_()) for p in model.parameters()]
             ps = [p + 0.5 * epsilon * grad for p,grad in zip(ps_init, grads_prev)]
 
             max_iterations = int((torch.rand(1)*(lmax+1-lmin)+lmin)[0])
