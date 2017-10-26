@@ -57,9 +57,10 @@ class Linear(MeanFunction):
         A = torch.ones((1, 1)) if A is None else A
         b = torch.zeros(1) if b is None else b
         MeanFunction.__init__(self)
-        self.A = Parameter(np.atleast_2d(A))
-        self.b = Parameter(b)
+        if A.dim()==1:
+            A = A.unsqueeze(1)
+        self.A = parameter.Param(A)
+        self.b = parameter.Param(b)
 
-    #@params_as_tensors
     def __call__(self, X):
-        return tf.matmul(X, self.A) + self.b
+        return torch.matmul(X, self.A.get()) + self.b.get()

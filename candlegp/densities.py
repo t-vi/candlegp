@@ -32,7 +32,7 @@ def gammaln(x):
     
     
 def gaussian(x, mu, var):
-    return -0.5 * (float(numpy.log(2 * numpy.pi)) + torch.log(var) + torch.square(mu-x)/var)
+    return -0.5 * (float(numpy.log(2 * numpy.pi)) + torch.log(var) + (mu-x)**2/var)
 
 def lognormal(x, mu, var):
     lnx = torch.log(x)
@@ -54,7 +54,7 @@ def gamma(shape, scale, x):
 def student_t(x, mean, scale, deg_free): # todo
     const = tf.lgamma(tf.cast((deg_free + 1.) * 0.5, float_type))\
             - tf.lgamma(tf.cast(deg_free * 0.5, float_type))\
-            - 0.5*(tf.log(tf.square(scale)) + tf.cast(tf.log(deg_free), float_type)
+            - 0.5*(2*tf.log(scale) + tf.cast(tf.log(deg_free), float_type)
                    + np.log(np.pi))
     const = tf.cast(const, float_type)
     return const - 0.5*(deg_free + 1.) * \
