@@ -41,13 +41,9 @@ class GPR(GPModel):
         kern, mean_function are appropriate GPflow objects
         """
         likelihood = likelihoods.Gaussian(ttype=type(X.data))
-        #X = DataHolder(X)
-        #Y = DataHolder(Y)
         super(GPR,self).__init__(X, Y, kern, likelihood, mean_function, **kwargs)
         self.num_latent = Y.size(1)
 
-    #@name_scope('likelihood')
-    #@params_as_tensors
     def compute_log_likelihood(self):
         """
         Construct a tensorflow function to compute the likelihood.
@@ -60,8 +56,6 @@ class GPR(GPModel):
         m = self.mean_function(self.X)
         return densities.multivariate_normal(self.Y, m, L)
 
-    #@name_scope('predict')
-    #@params_as_tensors
     def predict_f(self, Xnew, full_cov=False):
         """
         Xnew is a data matrix, point at which we want to predict

@@ -111,7 +111,7 @@ class GPModel(torch.nn.Module):
         Xnew.
         """
         mu, var = self.predict_f(Xnew, full_cov=True)
-        jitter = Variable(torch.eye(mu.size(0), out=mu.data.new())) * self.jitter_level # TV-Todo: GPU-friendly
+        jitter = Variable(torch.eye(mu.size(0), out=mu.data.new())) * self.jitter_level
         samples = []
         for i in range(self.num_latent): # TV-Todo: batch??
             L = torch.potrf(var[:, :, i] + jitter, upper=False)
