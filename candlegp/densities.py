@@ -86,6 +86,6 @@ def multivariate_normal(x, mu, L):
     num_col = 1 if x.dim() == 1 else x.size(1)
     num_dims = x.size(0)
     ret = - 0.5 * num_dims * num_col * float(numpy.log(2 * numpy.pi))
-    ret += - num_col * torch.diag(L).sum()
+    ret += - num_col * torch.diag(L).log().sum()
     ret += - 0.5 * (alpha**2).sum()
     return ret
