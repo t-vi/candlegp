@@ -77,3 +77,30 @@ class Param(ParamWithPrior): # unconstrained / untransformed
         return self
     def log_jacobian(self):
         return Variable(self.data.new(1).zero_()) # dimension?
+
+
+class LowerTriangularParam(ParamWithPrior):
+    """
+    A transform of the form
+
+       tri_mat = vec_to_tri(x)
+
+    x is a free variable, y is always a list of lower triangular matrices sized
+    (N x N x D).
+    """
+    @staticmethod
+    def untransform(t, out=None):
+        ii,jj = numpy.tril_indices(t.size(0))
+        return t[ii,jj]
+    def get(self):
+        numel = self.size(0)
+        N = int((2*numel+0.25)**0.5-0.5)
+        ii,jj = numpy.tril_indices(N)
+        if self.dim()==2:
+            mat = Variable(self.data.new(N,N, self.size(1)).zero_())
+        else:
+            mat = Variable(self.data.new(N,N).zero_())
+        mat[ii,jj] = self
+        return mat
+    def log_jacobian(self):
+        return Variable(self.data.new(1).zero_()) # dimension?
