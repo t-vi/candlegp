@@ -17,6 +17,8 @@
 import numpy
 import torch
 from . import parameter
+from . import quadrature
+from . import densities
 
 class Likelihood(torch.nn.Module):
     def __init__(self, name=None):
@@ -116,16 +118,15 @@ class Likelihood(torch.nn.Module):
         likelihoods (Gaussian, Poisson) will implement specific cases.
         """
 
-        gh_x, gh_w = hermgauss(self.num_gauss_hermite_points)
-        gh_x = gh_x.reshape(1, -1)
-        gh_w = gh_w.reshape(-1, 1) / np.sqrt(np.pi)
-        shape = tf.shape(Fmu)
-        Fmu, Fvar, Y = [tf.reshape(e, (-1, 1)) for e in (Fmu, Fvar, Y)]
-        X = gh_x * tf.sqrt(2.0 * Fvar) + Fmu
-        Y = tf.tile(Y, [1, self.num_gauss_hermite_points])  # broadcast Y to match X
-
+        gh_x, gh_w = quadrature.hermgauss(self.num_gauss_hermite_points, ttype=type(Fmu.data))
+        gh_x = gh_x.view(1, -1)
+        gh_w = gh_w.view(-1, 1) / float(numpy.pi)**0.5
+        shape = Fmu.size()
+        Fmu, Fvar, Y = [e.view(-1, 1) for e in (Fmu, Fvar, Y)]
+        X = gh_x * (2.0 * Fvar)**0.5 + Fmu
+        Y = Y.expand(-1, self.num_gauss_hermite_points)  # broadcast Y to match X
         logp = self.logp(X, Y)
-        return tf.reshape(tf.matmul(logp, gh_w), shape)
+        return torch.matmul(logp, gh_w).view(*shape)
 
     def _check_targets(self, Y_np):  # pylint: disable=R0201
         """
@@ -165,3 +166,41 @@ class Gaussian(Likelihood):
     def variational_expectations(self, Fmu, Fvar, Y):
         return (-0.5 * numpy.log(2 * numpy.pi) - 0.5 * torch.log(self.variance.get())
                 - 0.5 * ((Y - Fmu)**2 + Fvar) / self.variance.get())
+
+
+def probit(x):
+    return 0.5 * (1.0 + torch.erf(x / (2.0**0.5))) * (1 - 2e-3) + 1e-3
+
+
+class Bernoulli(Likelihood):
+    def __init__(self, invlink=probit):
+        super(Bernoulli, self).__init__()
+        self.invlink = invlink
+
+    def _check_targets(self, Y_np):
+        super(Bernoulli, self)._check_targets(Y_np)
+        Y_set = set(Y_np.flatten())
+        if len(Y_set) > 2 or len(Y_set - set([1.])) > 1:
+            raise Warning('all bernoulli variables should be in {1., k}, for some k')
+
+    def logp(self, F, Y):
+        return densities.bernoulli(self.invlink(F), Y)
+
+    def predict_mean_and_var(self, Fmu, Fvar):
+        if self.invlink is probit:
+            p = probit(Fmu / (1 + Fvar)**0.5)
+            return p, p - p**2
+        else:
+            # for other invlink, use quadrature
+            return Likelihood.predict_mean_and_var(self, Fmu, Fvar)
+
+    def predict_density(self, Fmu, Fvar, Y):
+        p = self.predict_mean_and_var(Fmu, Fvar)[0]
+        return densities.bernoulli(p, Y)
+
+    def conditional_mean(self, F):
+        return self.invlink(F)
+
+    def conditional_variance(self, F):
+        p = self.invlink(F)
+        return p - p**2
