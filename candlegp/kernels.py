@@ -307,3 +307,62 @@ class RBF(Stationary):
         res = self.variance.get() * torch.exp(-0.5 * self.square_dist(X, X2))
         return res
 
+class Exponential(Stationary):
+    """
+    The Exponential kernel
+    """
+
+    def K(self, X, X2=None, presliced=False):
+        if not presliced:
+            X, X2 = self._slice(X, X2)
+        r = self.euclid_dist(X, X2)
+        return self.variance.get() * torch.exp(-0.5 * r)
+
+
+class Matern12(Stationary):
+    """
+    The Matern 1/2 kernel
+    """
+
+    def K(self, X, X2=None, presliced=False):
+        if not presliced:
+            X, X2 = self._slice(X, X2)
+        r = self.euclid_dist(X, X2)
+        return self.variance.get() * torch.exp(-r)
+
+
+class Matern32(Stationary):
+    """
+    The Matern 3/2 kernel
+    """
+
+    def K(self, X, X2=None, presliced=False):
+        if not presliced:
+            X, X2 = self._slice(X, X2)
+        r = self.euclid_dist(X, X2)
+        return self.variance.get() * (1. + (3.**0.5) * r) * torch.exp(-(3.**0.5) * r)
+
+
+class Matern52(Stationary):
+    """
+    The Matern 5/2 kernel
+    """
+
+    def K(self, X, X2=None, presliced=False):
+        if not presliced:
+            X, X2 = self._slice(X, X2)
+        r = self.euclid_dist(X, X2)
+        return self.variance.get() * (1.0 + (5.**0.5) * r + 5. / 3. * r**2) * torch.exp(-(5.**0.5) * r)
+
+
+class Cosine(Stationary):
+    """
+    The Cosine kernel
+    """
+
+    def K(self, X, X2=None, presliced=False):
+        if not presliced:
+            X, X2 = self._slice(X, X2)
+        r = self.euclid_dist(X, X2)
+        return self.variance.get() * torch.cos(r)
+
