@@ -15,7 +15,7 @@
 
 import torch
 from torch.autograd import Variable
-
+import numpy
 from . import parameter
 
 class Kern(torch.nn.Module):
@@ -365,4 +365,77 @@ class Cosine(Stationary):
             X, X2 = self._slice(X, X2)
         r = self.euclid_dist(X, X2)
         return self.variance.get() * torch.cos(r)
+
+
+class Combination(Kern):
+    """
+    Combine  a list of kernels, e.g. by adding or multiplying (see inheriting
+    classes).
+
+    The names of the kernels to be combined are generated from their class
+    names.
+    """
+
+    def __init__(self, kern_list, name=None):
+        for k in kern_list:
+            assert isinstance(k, Kern), "can only add/multiply Kern instances"
+
+        input_dim = numpy.max([k.input_dim if type(k.active_dims) is slice else numpy.max(k.active_dims) + 1 for k in kern_list])
+        super(Combination, self).__init__(input_dim=input_dim, name=name)
+
+        # add kernels to a list, flattening out instances of this class therein
+        self.kern_list = torch.nn.ModuleList()
+        for k in kern_list:
+            if isinstance(k, self.__class__):
+                self.kern_list.extend(k.kern_list)
+            else:
+                self.kern_list.append(k)
+
+    @property
+    def on_separate_dimensions(self):
+        """
+        Checks whether the kernels in the combination act on disjoint subsets
+        of dimensions. Currently, it is hard to asses whether two slice objects
+        will overlap, so this will always return False.
+        :return: Boolean indicator.
+        """
+        if numpy.any([isinstance(k.active_dims, slice) for k in self.kern_list]):
+            # Be conservative in the case of a slice object
+            return False
+        else:
+            dimlist = [k.active_dims for k in self.kern_list]
+            overlapping = False
+            for i, dims_i in enumerate(dimlist):
+                for dims_j in dimlist[i + 1:]:
+                    if numpy.any(dims_i.reshape(-1, 1) == dims_j.reshape(1, -1)):
+                        overlapping = True
+            return not overlapping
+
+        
+class Add(Combination):
+    def K(self, X, X2=None, presliced=False):
+        res = 0.0
+        for k in self.kern_list:
+            res += k.K(X, X2, presliced=presliced)
+        return res
+
+    def Kdiag(self, X, presliced=False):
+        res = 0.0
+        for k in self.kern_list:
+            res += k.Kdiag(X, presliced=presliced)
+        return res
+
+
+class Prod(Combination):
+    def K(self, X, X2=None, presliced=False):
+        res = 1.0
+        for k in self.kern_list:
+            res *= k.K(X, X2, presliced=presliced)
+        return res
+
+    def Kdiag(self, X, presliced=False):
+        res = 1.0
+        for k in self.kern_list:
+            res *= k.Kdiag(X, presliced=presliced)
+        return res
 

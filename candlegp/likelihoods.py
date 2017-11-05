@@ -85,17 +85,15 @@ class Likelihood(torch.nn.Module):
         Here, we implement a default Gauss-Hermite quadrature routine, but some
         likelihoods (Gaussian, Poisson) will implement specific cases.
         """
-        gh_x, gh_w = hermgauss(self.num_gauss_hermite_points)
+        gh_x, gh_w = quadrature.hermgauss(self.num_gauss_hermite_points, ttype=type(Fmu.data))
 
-        gh_w = gh_w.reshape(-1, 1) / np.sqrt(np.pi)
-        shape = tf.shape(Fmu)
-        Fmu, Fvar, Y = [tf.reshape(e, (-1, 1)) for e in (Fmu, Fvar, Y)]
-        X = gh_x[None, :] * tf.sqrt(2.0 * Fvar) + Fmu
-
-        Y = tf.tile(Y, [1, self.num_gauss_hermite_points])  # broadcast Y to match X
-
+        gh_w = gh_w.reshape(-1, 1) / float(numpy.sqrt(numpy.pi))
+        shape = Fmu.size()
+        Fmu, Fvar, Y = [e.view(-1, 1) for e in (Fmu, Fvar, Y)]
+        X = gh_x * (2.0 * Fvar)**0.5 + Fmu
+        Y = Y.expand(-1, self.num_gauss_hermite_points)  # broadcast Y to match X
         logp = self.logp(X, Y)
-        return tf.reshape(tf.log(tf.matmul(tf.exp(logp), gh_w)), shape)
+        return torch.matmul(logp.exp(), gh_w).view(*shape)
 
     def variational_expectations(self, Fmu, Fvar, Y):
         """
@@ -137,10 +135,10 @@ class Likelihood(torch.nn.Module):
         and consists only of floats. The float requirement is so that AutoFlow
         can work with Model.predict_density.
         """
-        if not len(Y_np.shape) == 2:
+        if not Y.dim() == 2:
             raise ValueError('targets must be shape N x D')
-        if np.array(list(Y_np)).dtype != settings.np_float:
-            raise ValueError('use {}, even for discrete variables'.format(settings.np_float))
+        #if np.array(list(Y_np)).dtype != settings.np_float:
+        #    raise ValueError('use {}, even for discrete variables'.format(settings.np_float))
 
 
 class Gaussian(Likelihood):
@@ -204,3 +202,29 @@ class Bernoulli(Likelihood):
     def conditional_variance(self, F):
         p = self.invlink(F)
         return p - p**2
+
+    
+class Exponential(Likelihood):
+    def __init__(self, invlink=torch.exp):
+        Likelihood.__init__(self)
+        self.invlink = invlink
+
+    def _check_targets(self, Y):
+        super(Exponential, self)._check_targets(Y)
+        if (Y < 0).any():
+            raise ValueError('exponential variables must be positive')
+
+    def logp(self, F, Y):
+        return densities.exponential(self.invlink(F), Y)
+
+    def conditional_mean(self, F):
+        return self.invlink(F)
+
+    def conditional_variance(self, F):
+        return (self.invlink(F))**2
+
+    def variational_expectations(self, Fmu, Fvar, Y):
+        if self.invlink is torch.exp:
+            return - torch.exp(-Fmu + Fvar / 2) * Y - Fmu
+        return super(Exponential, self).variational_expectations(Fmu, Fvar, Y)
+

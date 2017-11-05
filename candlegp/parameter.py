@@ -53,8 +53,8 @@ class ParamWithPrior(torch.nn.Parameter):
         if self.prior is None:
             return 0.0
         
-        log_jacobian = self.log_jacobian() #(unconstrained_tensor)
-        logp_var = self.prior.logp(self.get())
+        log_jacobian = self.log_jacobian().sum() #(unconstrained_tensor)
+        logp_var = self.prior.logp(self.get()).sum()
         return log_jacobian+logp_var
 
 class PositiveParam(ParamWithPrior): # log(1+exp(r))
