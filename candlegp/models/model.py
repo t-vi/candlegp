@@ -83,7 +83,7 @@ class GPModel(torch.nn.Module):
         pos_objective = self.compute_log_likelihood()
         for param in self.parameters():
             if isinstance(param, parameter.ParamWithPrior):
-                pos_objective += param.get_prior()
+                pos_objective = pos_objective + param.get_prior()
         return -pos_objective
 
     def forward(self):
