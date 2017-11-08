@@ -22,7 +22,7 @@ from . import densities
 def wrap(x, ttype=torch.Tensor, **argd):
     if numpy.isscalar(x):
         x = Variable(ttype([x]),**argd)
-    elif isinstance(x, [torch.Tensor, torch.DoubleTensor]):
+    elif isinstance(x, (torch.Tensor, torch.DoubleTensor)):
         x = Variable(x, **argd)
     return x
 

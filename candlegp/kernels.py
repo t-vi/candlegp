@@ -198,7 +198,7 @@ class Static(Kern):
         super(Static, self).__init__(input_dim, active_dims, name=name)
         self.variance = parameter.PositiveParam(variance)
 
-    def Kdiag(self, X):
+    def Kdiag(self, X, presliced=False):
         return self.variance.get().expand(X.size(0))
 
 
@@ -206,7 +206,7 @@ class White(Static):
     """
     The White kernel
     """
-    #@params_as_tensors
+
     def K(self, X, X2=None, presliced=False):
         if X2 is None:
             d = self.variance.get().expand(X.size(0))

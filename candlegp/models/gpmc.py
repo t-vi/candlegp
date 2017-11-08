@@ -52,7 +52,7 @@ class GPMC(GPModel):
         self.num_data = X.size(0)
         self.num_latent = num_latent or Y.size(1)
         self.V = parameter.Param(self.X.data.new(self.num_data, self.num_latent).zero_())
-        self.V.prior = priors.Gaussian(0., 1.)
+        self.V.prior = priors.Gaussian(self.X.data.new(1).fill_(0.), self.X.data.new(1).fill_(1.))
 
     def compute_log_likelihood(self):
         """
@@ -80,7 +80,7 @@ class GPMC(GPModel):
         where F* are points on the GP at Xnew, F=LV are points on the GP at X.
 
         """
-        mu, var = conditionals.conditional(Xnew, self.X, self.kern, self.V,
+        mu, var = conditionals.conditional(Xnew, self.X, self.kern, self.V.get(),
                               full_cov=full_cov,
                               q_sqrt=None, whiten=True)
         return mu + self.mean_function(Xnew), var

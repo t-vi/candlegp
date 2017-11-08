@@ -146,7 +146,7 @@ class SGPR(GPModel, SGPRUpperMixin):
         # compute log marginal bound
         bound = -0.5 * num_data * output_dim * float(numpy.log(2 * numpy.pi))
         bound += -output_dim * torch.sum(torch.log(torch.diag(LB)))
-        bound -= 0.5 * num_data * output_dim * torch.log(self.likelihood.variance.get())
+        bound = bound - 0.5 * num_data * output_dim * torch.log(self.likelihood.variance.get())
         bound += -0.5 * torch.sum(err**2) / self.likelihood.variance.get()
         bound += 0.5 * torch.sum(c**2)
         bound += -0.5 * output_dim * torch.sum(Kdiag) / self.likelihood.variance.get()
