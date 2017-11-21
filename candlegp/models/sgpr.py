@@ -117,11 +117,13 @@ class SGPR(GPModel, SGPRUpperMixin):
         self.num_data = X.size(0)
         self.num_latent = Y.size(1)
 
-    def compute_log_likelihood(self):
+    def compute_log_likelihood(self, X=None, Y=None):
         """
         For a derivation of the terms in here, see the associated
         SGPR notebook.
         """
+
+        assert X is None and Y is None, "{} does not support minibatch mode".format(str(type(self)))
 
         num_inducing = self.Z.size(0)
         num_data = self.Y.size(0)
@@ -240,11 +242,12 @@ class GPRFITC(GPModel, SGPRUpperMixin):
 
         return err, nu, Luu, L, alpha, beta, gamma
 
-    def compute_log_likelihood(self):
+    def compute_log_likelihood(self, X=None, Y=None):
         """
         Construct a tensorflow function to compute the bound on the marginal
         likelihood.
         """
+        assert X is None and Y is None, "{} does not support minibatch mode".format(str(type(self)))
 
         # FITC approximation to the log marginal likelihood is
         # log ( normal( y | mean, K_fitc ) )

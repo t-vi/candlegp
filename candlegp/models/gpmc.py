@@ -54,7 +54,7 @@ class GPMC(GPModel):
         self.V = parameter.Param(self.X.data.new(self.num_data, self.num_latent).zero_())
         self.V.prior = priors.Gaussian(self.X.data.new(1).fill_(0.), self.X.data.new(1).fill_(1.))
 
-    def compute_log_likelihood(self):
+    def compute_log_likelihood(self, X=None, Y=None):
         """
         Construct a tf function to compute the likelihood of a general GP
         model.
@@ -62,6 +62,7 @@ class GPMC(GPModel):
             \log p(Y, V | theta).
 
         """
+        assert X is None and Y is None, "{} does not support minibatch mode".format(str(type(self)))
         K = self.kern.K(self.X)
         L = torch.potrf(
             K + Variable(torch.eye(self.X.size(0), out=K.data.new()) * self.jitter_level), upper=False)

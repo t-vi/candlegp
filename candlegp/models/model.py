@@ -75,19 +75,19 @@ class GPModel(torch.nn.Module):
         pass
 
     @abc.abstractmethod
-    def compute_log_likelihood(self):
+    def compute_log_likelihood(self, X=None, Y=None):
         """Compute the log likelihood of the model."""
         pass
 
-    def objective(self):
-        pos_objective = self.compute_log_likelihood()
+    def objective(self, X=None, Y=None):
+        pos_objective = self.compute_log_likelihood(X, Y)
         for param in self.parameters():
             if isinstance(param, parameter.ParamWithPrior):
                 pos_objective = pos_objective + param.get_prior()
         return -pos_objective
 
-    def forward(self):
-        return self.objective()
+    def forward(self, X=None, Y=None):
+        return self.objective(X, Y)
     
     @abc.abstractmethod
     def predict_f(self, Xnew, full_cov=False):

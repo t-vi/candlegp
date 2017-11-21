@@ -44,13 +44,14 @@ class GPR(GPModel):
         super(GPR,self).__init__(X, Y, kern, likelihood, mean_function, **kwargs)
         self.num_latent = Y.size(1)
 
-    def compute_log_likelihood(self):
+    def compute_log_likelihood(self, X = None, Y = None):
         """
         Construct a tensorflow function to compute the likelihood.
 
             \log p(Y | theta).
 
         """
+        assert X is None and Y is None, "{} does not support minibatch mode".format(str(type(self)))
         K = self.kern.K(self.X) + Variable(torch.eye(self.X.size(0),out=self.X.data.new())) * self.likelihood.variance.get()
         L = torch.potrf(K, upper=False)
         m = self.mean_function(self.X)

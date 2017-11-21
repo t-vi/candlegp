@@ -92,22 +92,27 @@ class SVGP(GPModel):
                 KL = kullback_leiblers.gauss_kl(self.q_mu.get(), self.q_sqrt.get(), K)
         return KL
 
-    def compute_log_likelihood(self):
+    def compute_log_likelihood(self, X=None, Y=None):
         """
         This gives a variational bound on the model likelihood.
         """
+
+        if X is None:
+            X = self.X
+        if Y is None:
+            Y = self.Y
 
         # Get prior KL.
         KL = self.prior_KL()
 
         # Get conditionals
-        fmean, fvar = self.predict_f(self.X, full_cov=False)
+        fmean, fvar = self.predict_f(X, full_cov=False)
 
         # Get variational expectations.
-        var_exp = self.likelihood.variational_expectations(fmean, fvar, self.Y)
+        var_exp = self.likelihood.variational_expectations(fmean, fvar, Y)
 
         # re-scale for minibatch size
-        scale = float(self.num_data) / self.X.size(0)
+        scale = float(self.num_data) / X.size(0)
 
         return var_exp.sum() * scale - KL
 

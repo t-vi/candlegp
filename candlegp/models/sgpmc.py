@@ -85,10 +85,10 @@ class SGPMC(GPModel):
         self.num_latent = num_latent or Y.size(1)
         self.num_inducing = Z.size(0)
         self.Z = parameter.Param(Z)
-        self.V = parameter.Param(self.X.data.new(self.num_inducing, self.num_latent).zero_())
-        self.V.prior = priors.Gaussian(self.X.data.new(1).fill_(0.), self.X.data.new(1).fill_(1.))
+        self.V = parameter.Param(self.Z.data.new(self.num_inducing, self.num_latent).zero_())
+        self.V.prior = priors.Gaussian(self.Z.data.new(1).fill_(0.), self.Z.data.new(1).fill_(1.))
 
-    def compute_log_likelihood(self):
+    def compute_log_likelihood(self, X=None, Y=None):
         """
         Construct a tf function to compute the likelihood of a general GP
         model.
@@ -96,9 +96,14 @@ class SGPMC(GPModel):
             \log p(Y, V | theta).
 
         """
+        if X is None:
+            X = self.X
+        if Y is None:
+            Y = self.Y
+
         # get the (marginals of) q(f): exactly predicting!
-        fmean, fvar = self.predict_f(self.X, full_cov=False)
-        return self.likelihood.variational_expectations(fmean, fvar, self.Y).sum()
+        fmean, fvar = self.predict_f(X, full_cov=False)
+        return self.likelihood.variational_expectations(fmean, fvar, Y).sum()
 
     def predict_f(self, Xnew, full_cov=False):
         """

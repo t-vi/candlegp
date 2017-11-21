@@ -63,7 +63,7 @@ class VGP(GPModel):
         q_sqrt = torch.eye(self.num_data, out=self.X.data.new()).unsqueeze(2).expand(-1,-1,self.num_latent)
         self.q_sqrt = parameter.LowerTriangularParam(q_sqrt) # should the diagonal be all positive?
 
-    def compute_log_likelihood(self):
+    def compute_log_likelihood(self, X=None, Y=None):
         """
         This method computes the variational lower bound on the likelihood,
         which is:
@@ -76,6 +76,7 @@ class VGP(GPModel):
 
         """
 
+        assert X is None and Y is None, "{} does not support minibatch mode".format(str(type(self)))
         # Get prior KL.
         KL = kullback_leiblers.gauss_kl_white(self.q_mu.get(), self.q_sqrt.get())
 
