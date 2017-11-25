@@ -92,7 +92,7 @@ def conditional(Xnew, X, kern, f, full_cov=False, q_sqrt=None, whiten=False, jit
 
     if q_sqrt is not None:
         if q_sqrt.dim() == 2:
-            LTA = A * q_sqrt.unsqueeze(2)  # K x M x N
+            LTA = A * q_sqrt.t().unsqueeze(2)  # K x M x N
         elif q_sqrt.dim() == 3:
             L = batch_tril(q_sqrt.permute(2, 0, 1))  # K x M x M
             # A_tiled = tf.tile(tf.expand_dims(A, 0), tf.stack([num_func, 1, 1])) # I don't think I need this

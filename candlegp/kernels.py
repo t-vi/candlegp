@@ -212,7 +212,6 @@ class White(Static):
             d = self.variance.get().expand(X.size(0))
             return torch.diag(d)
         else:
-            shape = tf.stack([tf.shape(X)[0], tf.shape(X2)[0]])
             return Variable(X.data.new(X.size(0),X2.size(0)).zero_())
 
 

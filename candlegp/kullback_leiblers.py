@@ -70,7 +70,7 @@ def gauss_kl_white_diag(q_mu, q_sqrt):
 
     KL = 0.5 * (q_mu**2).sum()                    # Mahalanobis term
     KL += -0.5 * q_sqrt.numel()
-    KL -= q_sqrt().abs().log()                    # Log-det of q-cov
+    KL = KL - q_sqrt.abs().log().sum()            # Log-det of q-cov
     KL += 0.5 * (q_sqrt**2).sum()                 # Trace term
     return KL
 
