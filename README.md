@@ -17,3 +17,6 @@ adapted from gpflow:
 - [Upper bound for variational inference](notebooks/upper_bound.ipynb)
 - [SVGP with minibatch training](notebooks/minibatches.ipynb)
 - [Multi-class classification](notebooks/multiclass.ipynb)
+
+Todo:
+- GPLVM
