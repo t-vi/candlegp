@@ -20,7 +20,6 @@
 import numpy
 import abc
 import torch
-from torch.autograd import Variable
 
 class ParamWithPrior(torch.nn.Parameter):
     @abc.abstractmethod
@@ -32,23 +31,19 @@ class ParamWithPrior(torch.nn.Parameter):
     @abc.abstractstaticmethod
     def untransform(t, out=None):
         pass
-    def __init__(self, val, prior=None, ttype=torch.FloatTensor):
+    def __init__(self, val, prior=None, dtype=torch.float32):
         pass
-    def __new__(cls, val, prior=None, ttype=torch.FloatTensor): # for some reaosn unknown to me, it is impossible to pass a different tensor Type as ttype...
-        if isinstance(val, torch.autograd.Variable):
-            val = val.data
-        elif numpy.isscalar(val):
-            val = ttype([val])
+    def __new__(cls, val, prior=None, dtype=torch.float32):
+        if numpy.isscalar(val):
+            val = torch.tensor([val], dtype=dtype)
         raw = cls.untransform(val)
         obj = super(ParamWithPrior, cls).__new__(cls, raw)
         obj.prior = prior
         return obj
     def set(self, t):
-        if isinstance(t, torch.autograd.Variable):
-            t = t.data
-        elif numpy.isscalar(t):
-            t = self.data.new(1).fill_(t)
-        self.untransform(t, out=self.data)
+        if numpy.isscalar(t):
+            t = torch.tensor(t, dtype=self.dtype)
+        self.untransform(t, out=self)
     def get_prior(self):
         if self.prior is None:
             return 0.0
@@ -60,9 +55,10 @@ class ParamWithPrior(torch.nn.Parameter):
 class PositiveParam(ParamWithPrior): # log(1+exp(r))
     @staticmethod
     def untransform(t, out=None):
-        return torch.log(torch.exp(t)-1, out=out)
+        with torch.no_grad():
+            return torch.log(torch.exp(t) - 1, out=out)
     def get(self):
-        return torch.log(1+torch.exp(self))
+        return torch.log(1 + torch.exp(self))
     def log_jacobian(self):
         return -(torch.nn.functional.softplus(-self))
 
@@ -76,7 +72,7 @@ class Param(ParamWithPrior): # unconstrained / untransformed
     def get(self):
         return self
     def log_jacobian(self):
-        return Variable(self.data.new(1).zero_()) # dimension?
+        return torch.zeros((), dtype=self.dtype)  # dimension?
 
 
 class LowerTriangularParam(ParamWithPrior):
@@ -97,10 +93,10 @@ class LowerTriangularParam(ParamWithPrior):
         N = int((2*numel+0.25)**0.5-0.5)
         ii,jj = numpy.tril_indices(N)
         if self.dim()==2:
-            mat = Variable(self.data.new(N,N, self.size(1)).zero_())
+            mat = torch.zeros(N,N, self.size(1), dtype=self.dtype)
         else:
-            mat = Variable(self.data.new(N,N).zero_())
+            mat = torch.zeros(N, N, dtype=self.dtype)
         mat[ii,jj] = self
         return mat
     def log_jacobian(self):
-        return Variable(self.data.new(1).zero_()) # dimension?
+        return torch.zeros((), dtype=self.dtype)  # dimension?

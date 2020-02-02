@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import torch
-from torch.autograd import Variable
 
 from .. import likelihoods
 from .. import densities
@@ -40,7 +39,7 @@ class GPR(GPModel):
         Y is a data matrix, size N x R
         kern, mean_function are appropriate GPflow objects
         """
-        likelihood = likelihoods.Gaussian(ttype=type(X.data))
+        likelihood = likelihoods.Gaussian(dtype=X.dtype)
         super(GPR,self).__init__(X, Y, kern, likelihood, mean_function, **kwargs)
         self.num_latent = Y.size(1)
 
@@ -52,8 +51,8 @@ class GPR(GPModel):
 
         """
         assert X is None and Y is None, "{} does not support minibatch mode".format(str(type(self)))
-        K = self.kern.K(self.X) + Variable(torch.eye(self.X.size(0),out=self.X.data.new())) * self.likelihood.variance.get()
-        L = torch.potrf(K, upper=False)
+        K = self.kern.K(self.X) + torch.eye(self.X.size(0), dtype=self.X.dtype, device=self.X.device) * self.likelihood.variance.get()
+        L = torch.cholesky(K, upper=False)
         m = self.mean_function(self.X)
         return densities.multivariate_normal(self.Y, m, L)
 
@@ -69,10 +68,10 @@ class GPR(GPModel):
 
         """
         Kx = self.kern.K(self.X, Xnew)
-        K = self.kern.K(self.X) + Variable(torch.eye(self.X.size(0),out=self.X.data.new())) * self.likelihood.variance.get()
-        L = torch.potrf(K, upper=False)
-        A,_ = torch.gesv(Kx, L)  # could use triangular solve, note gesv has B first, then A in AX=B
-        V,_ = torch.gesv(self.Y - self.mean_function(self.X),L) # could use triangular solve
+        K = self.kern.K(self.X) + torch.eye(self.X.size(0), dtype=self.X.dtype, device=self.X.device) * self.likelihood.variance.get()
+        L = torch.cholesky(K, upper=False)
+        A,_ = torch.solve(Kx, L)  # could use triangular solve, note gesv has B first, then A in AX=B
+        V,_ = torch.solve(self.Y - self.mean_function(self.X),L) # could use triangular solve
         fmean = torch.mm(A.t(), V) + self.mean_function(Xnew)
         if full_cov:
             fvar = self.kern.K(Xnew) - torch.mm(A.t(), A)

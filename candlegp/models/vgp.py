@@ -15,7 +15,6 @@
 
 import numpy
 import torch
-from torch.autograd import Variable
 
 from .. import conditionals
 from .. import kullback_leiblers
@@ -60,7 +59,7 @@ class VGP(GPModel):
         self.num_latent = num_latent or Y.size(1)
 
         self.q_mu = parameter.Param(self.X.data.new(self.num_data, self.num_latent).zero_())
-        q_sqrt = torch.eye(self.num_data, out=self.X.data.new()).unsqueeze(2).expand(-1,-1,self.num_latent)
+        q_sqrt = torch.eye(self.num_data, dtype=self.X.dtype, device=self.X.device).unsqueeze(2).expand(-1,-1,self.num_latent)
         self.q_sqrt = parameter.LowerTriangularParam(q_sqrt) # should the diagonal be all positive?
 
     def compute_log_likelihood(self, X=None, Y=None):
@@ -81,8 +80,8 @@ class VGP(GPModel):
         KL = kullback_leiblers.gauss_kl_white(self.q_mu.get(), self.q_sqrt.get())
 
         # Get conditionals
-        K = self.kern.K(self.X) + Variable(torch.eye(self.num_data, out=self.X.data.new())) * self.jitter_level
-        L = torch.potrf(K, upper=False)
+        K = self.kern.K(self.X) + torch.eye(self.num_data, dtype=self.X.dtype, device=self.X.device) * self.jitter_level
+        L = torch.cholesky(K, upper=False)
 
         fmean = torch.matmul(L, self.q_mu) + self.mean_function(self.X)  # NN,ND->ND
 

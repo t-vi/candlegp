@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import torch
-from torch.autograd import Variable
 from . import parameter
 
 class MeanFunction(torch.nn.Module):
@@ -40,7 +39,7 @@ class MeanFunction(torch.nn.Module):
 
 class Zero(MeanFunction):
     def forward(self, X):
-        return Variable(X.data.new(X.size(0),1).zero_())
+        return torch.zeros(X.size(0), 1, dtype=X.dtype, device=X.device)
 
 class Linear(MeanFunction):
     """

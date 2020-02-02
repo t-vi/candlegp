@@ -16,7 +16,6 @@
 
 import numpy
 import torch
-from torch.autograd import Variable
 
 from .. import likelihoods
 from .. import densities
@@ -55,14 +54,14 @@ class SGPRUpperMixin(object):
         num_data = self.Y.size(0)
 
         Kdiag = self.kern.Kdiag(self.X)
-        jitter = Variable(torch.eye(num_inducing, out=self.Z.data.new())) * self.jitter_level
+        jitter = torch.eye(num_inducing, dtype=self.Z.dtype, device=self.Z.device) * self.jitter_level
         Kuu = self.kern.K(self.Z.get()) + jitter
         Kuf = self.kern.K(self.Z.get(), self.X)
 
-        L = torch.potrf(Kuu, upper=False)
-        LB = torch.potrf(Kuu + self.likelihood.variance.get() ** -1.0 * torch.matmul(Kuf, Kuf.t()), upper=False)
+        L = torch.cholesky(Kuu, upper=False)
+        LB = torch.cholesky(Kuu + self.likelihood.variance.get() ** -1.0 * torch.matmul(Kuf, Kuf.t()), upper=False)
 
-        LinvKuf, _ = torch.gesv(Kuf, L) # could use triangular solve
+        LinvKuf, _ = torch.solve(Kuf, L) # could use triangular solve
         # Using the Trace bound, from Titsias' presentation
         c = Kdiag.sum() - (LinvKuf ** 2.0).sum()
         # Kff = self.kern.K(self.X)
@@ -75,8 +74,8 @@ class SGPRUpperMixin(object):
         const = -0.5 * num_data * torch.log(2 * float(numpy.pi) * self.likelihood.variance.get())
         logdet = torch.diag(L).log().sum() - torch.diag(LB).log().sum()
 
-        LC = torch.potrf(Kuu + corrected_noise ** -1.0 * torch.matmul(Kuf, Kuf.t()), upper=False)
-        v, _ = torch.gesv(corrected_noise ** -1.0 * torch.matmul(Kuf, self.Y), LC)
+        LC = torch.cholesky(Kuu + corrected_noise ** -1.0 * torch.matmul(Kuf, Kuf.t()), upper=False)
+        v, _ = torch.solve(corrected_noise ** -1.0 * torch.matmul(Kuf, self.Y), LC)
         quad = -0.5 * corrected_noise ** -1.0 * (self.Y ** 2.0).sum() + 0.5 * (v ** 2.0).sum()
 
         return const + logdet + quad
@@ -111,7 +110,7 @@ class SGPR(GPModel, SGPRUpperMixin):
 
         This method only works with a Gaussian likelihood.
         """
-        likelihood = likelihoods.Gaussian(ttype=type(X.data))
+        likelihood = likelihoods.Gaussian(dtype=X.dtype)
         super(SGPR,self).__init__(X, Y, kern, likelihood, mean_function, **kwargs)
         self.Z = parameter.Param(Z)
         self.num_data = X.size(0)
@@ -132,18 +131,18 @@ class SGPR(GPModel, SGPRUpperMixin):
         err = self.Y - self.mean_function(self.X)
         Kdiag = self.kern.Kdiag(self.X)
         Kuf = self.kern.K(self.Z.get(), self.X)
-        jitter = Variable(torch.eye(num_inducing, out=self.Z.data.new())) * self.jitter_level
+        jitter = torch.eye(num_inducing, dtype=self.Z.dtype, device=self.Z.device) * self.jitter_level
         Kuu = self.kern.K(self.Z.get()) + jitter
-        L = torch.potrf(Kuu, upper=False)
+        L = torch.cholesky(Kuu, upper=False)
         sigma = self.likelihood.variance.get()**0.5
 
         # Compute intermediate matrices
-        A = torch.gesv(Kuf, L)[0] / sigma  # could use triangular solve
+        A = torch.solve(Kuf, L)[0] / sigma  # could use triangular solve
         AAT = torch.matmul(A, A.t())
-        B = AAT + Variable(torch.eye(num_inducing, out=AAT.data.new()))
-        LB = torch.potrf(B, upper=False)
+        B = AAT + torch.eye(num_inducing, dtype=AAT.dtype, device=AAT.device)
+        LB = torch.cholesky(B, upper=False)
         Aerr = torch.matmul(A, err)
-        c = torch.gesv(Aerr, LB)[0] / sigma # could use triangular solve
+        c = torch.solve(Aerr, LB)[0] / sigma # could use triangular solve
 
         # compute log marginal bound
         bound = -0.5 * num_data * output_dim * float(numpy.log(2 * numpy.pi))
@@ -165,18 +164,18 @@ class SGPR(GPModel, SGPRUpperMixin):
         num_inducing = self.Z.size(0)
         err = self.Y - self.mean_function(self.X)
         Kuf = self.kern.K(self.Z.get(), self.X)
-        jitter = Variable(torch.eye(num_inducing, out=self.Z.data.new())) * self.jitter_level
+        jitter = torch.eye(num_inducing, dtype=self.Z.dtype, device=self.Z.device) * self.jitter_level
         Kuu = self.kern.K(self.Z.get()) + jitter
         Kus = self.kern.K(self.Z.get(), Xnew)
         sigma = self.likelihood.variance.get()**0.5
-        L = torch.potrf(Kuu, upper=False)
-        A = torch.gesv(Kuf, L)[0] / sigma # could use triangular solve here and below
-        B = torch.matmul(A,A.t()) + Variable(torch.eye(num_inducing, out=A.data.new()))
-        LB = torch.potrf(B, upper=False)
+        L = torch.cholesky(Kuu, upper=False)
+        A = torch.solve(Kuf, L)[0] / sigma # could use triangular solve here and below
+        B = torch.matmul(A,A.t()) + torch.eye(num_inducing, dtype=A.dtype, device=A.device)
+        LB = torch.cholesky(B, upper=False)
         Aerr = torch.matmul(A, err)
-        c = torch.gesv(Aerr, LB)[0] / sigma
-        tmp1,_ = torch.gesv(Kus, L)
-        tmp2,_ = torch.gesv(tmp1,LB)
+        c = torch.solve(Aerr, LB)[0] / sigma
+        tmp1,_ = torch.solve(Kus, L)
+        tmp2,_ = torch.solve(tmp1,LB)
         mean = torch.matmul(tmp2.t(), c)
         if full_cov:
             var = self.kern.K(Xnew) + torch.matmul(tmp2.t(), tmp2) - torch.matmul(tmp1.t(), tmp1)
@@ -213,7 +212,7 @@ class GPRFITC(GPModel, SGPRUpperMixin):
         This method only works with a Gaussian likelihood.
 
         """
-        likelihood = likelihoods.Gaussian(ttype=type(X.data))
+        likelihood = likelihoods.Gaussian(dtype=X.dtype)
         super(SGPR,self).__init__(X, Y, kern, likelihood, mean_function, **kwargs)
         self.Z = parameter.Param(Z)
         self.num_data = X.size(0)
@@ -224,21 +223,21 @@ class GPRFITC(GPModel, SGPRUpperMixin):
         err = self.Y - self.mean_function(self.X)  # size N x R
         Kdiag = self.kern.Kdiag(self.X)
         Kuf = self.kern.K(self.Z.get(), self.X)
-        jitter = Variable(torch.eye(num_inducing, out=self.Z.data.new())) * self.jitter_level
+        jitter = torch.eye(num_inducing, dtype=self.Z.dtype, device=self.Z.device) * self.jitter_level
         Kuu = self.kern.K(self.Z.get()) + jitter
 
-        Luu = torch.potrf(Kuu, upper=False)  # => Luu Luu^T = Kuu
-        V, _ = torch.gesv(Kuf, Luu)  # => V^T V = Qff = Kuf^T Kuu^-1 Kuf
+        Luu = torch.cholesky(Kuu, upper=False)  # => Luu Luu^T = Kuu
+        V, _ = torch.solve(Kuf, Luu)  # => V^T V = Qff = Kuf^T Kuu^-1 Kuf
 
         diagQff = (V**2).sum(0)
         nu = Kdiag - diagQff + self.likelihood.variance.get()
 
         B = torch.eye(num_inducing, out=V.data.new()) + torch.matmul(V / nu, V.t())
-        L = torch.potrf(B, upper=False)
+        L = torch.cholesky(B, upper=False)
         beta = err / nu.unsqueeze(1)  # size N x R
         alpha = torch.matmul(V, beta)  # size N x R
 
-        gamma, _ = torch.gesv(alpha, L)  # size N x R
+        gamma, _ = torch.solve(alpha, L)  # size N x R
 
         return err, nu, Luu, L, alpha, beta, gamma
 
@@ -294,11 +293,11 @@ class GPRFITC(GPModel, SGPRUpperMixin):
         _, _, Luu, L, _, _, gamma = self._common_terms()
         Kus = self.kern.K(self.Z.get(), Xnew)  # size  M x Xnew
 
-        w, _ = torch.gesv(Kus, Luu)  # size M x Xnew
+        w, _ = torch.solve(Kus, Luu)  # size M x Xnew
 
-        tmp, _ = torch.gesv(gamma, L.t())
+        tmp, _ = torch.solve(gamma, L.t())
         mean = torch.matmul(w.t(), tmp) + self.mean_function(Xnew)
-        intermediateA, _ = torch.gesv(w, L)
+        intermediateA, _ = torch.solve(w, L)
 
         if full_cov:
             var = self.kern.K(Xnew) - torch.matmul(w.t(), w) + torch.matmul(intermediateA.t(), intermediateA)

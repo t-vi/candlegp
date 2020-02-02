@@ -1,6 +1,10 @@
 # CandleGP - Gaussian Processes in Pytorch
 *Thomas Viehmann*, tv@lernapparat.de
 
+*Note:* This stems from before the Tensor/Variable merge, so it is really old.
+I recently needed bits and ported those to PyTorch 1.4, but there are rough edges w.r.t. dimensionality of quantities and there will be unported bits.
+
+
 I felt Bayesian the other day, so I ported (a tiny part of) the
 excellent [GPFlow library](https://github.com/gpflow/gpflow) to
 Pytorch.

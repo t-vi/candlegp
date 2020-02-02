@@ -1,14 +1,13 @@
 import numpy
 import torch
-from torch.autograd import Variable
 
-def hermgauss(n, ttype=torch.FloatTensor):
+def hermgauss(n, dtype=torch.float32):
     x, w = numpy.polynomial.hermite.hermgauss(n)
-    x, w = Variable(ttype(x)), Variable(ttype(w))
+    x, w = torch.as_tensor(x, dtype=dtype), torch.as_tensor(w, dtype=dtype)
     return x, w
 
 
-def mvhermgauss(H, D, ttype=torch.FloatTensor):
+def mvhermgauss(H, D, dtype=torch.float32):
     """
     Return the evaluation locations 'xn', and weights 'wn' for a multivariate
     Gauss-Hermite quadrature.
@@ -23,7 +22,7 @@ def mvhermgauss(H, D, ttype=torch.FloatTensor):
     gh_x, gh_w = hermgauss(H)
     x = numpy.array(numpy.meshgrid(*(D*(gh_x,))))
     w = numpy.array(numpy.meshgrid(*(D*(gh_w,)))).prod(1)
-    x, w = Variable(ttype(x)), Variable(ttype(w))
+    x, w = torch.as_tensor(x, dtype=dtype), torch.as_tensor(w, dtype=dtype)
     return x, w
 
 

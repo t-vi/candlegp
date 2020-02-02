@@ -100,7 +100,7 @@ def gauss_kl_diag(q_mu, q_sqrt, K):
     KL += num_latent * torch.diag(L).log().sum() # Prior log-det term.
     KL += -0.5 * q_sqrt.numel()                  # constant term
     KL += - q_sqrt.log().sum()                   # Log-det of q-cov
-    K_inv,_ = torch.potrs(Variable(torch.eye(L.size(0), out=L.data.new())), L, upper=False) 
+    K_inv,_ = torch.cholesky(torch.eye(L.size(0), dtype=L.dtype, device=L.device), L, upper=False)
     KL += 0.5 * (torch.diag(K_inv).unsqueeze(1) * q_sqrt**2).sum()  # Trace term.
     return KL
 

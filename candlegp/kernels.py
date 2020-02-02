@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import torch
-from torch.autograd import Variable
 import numpy
 from . import parameter
 
@@ -212,7 +211,7 @@ class White(Static):
             d = self.variance.get().expand(X.size(0))
             return torch.diag(d)
         else:
-            return Variable(X.data.new(X.size(0),X2.size(0)).zero_())
+            return torch.zeros(X.size(0), X2.size(0), dtype=X.dtype, device=X.device)
 
 
 class Constant(Static):

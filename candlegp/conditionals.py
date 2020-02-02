@@ -15,7 +15,6 @@
 
 
 import torch
-from torch.autograd import Variable
 import numpy
 
 def batch_tril(A):
@@ -68,11 +67,11 @@ def conditional(Xnew, X, kern, f, full_cov=False, q_sqrt=None, whiten=False, jit
     num_data = X.size(0)  # M
     num_func = f.size(1)  # K
     Kmn = kern.K(X, Xnew)
-    Kmm = kern.K(X) + Variable(torch.eye(num_data, out=X.data.new())) * jitter_level
-    Lm = torch.potrf(Kmm, upper=False)
+    Kmm = kern.K(X) + torch.eye(num_data, dtype=X.dtype, device=X.device) * jitter_level
+    Lm = torch.cholesky(Kmm, upper=False)
 
     # Compute the projection matrix A
-    A,_ = torch.gesv(Kmn, Lm)
+    A, _ = torch.solve(Kmn, Lm)
 
     # compute the covariance due to the conditioning
     if full_cov:
@@ -85,7 +84,7 @@ def conditional(Xnew, X, kern, f, full_cov=False, q_sqrt=None, whiten=False, jit
 
     # another backsubstitution in the unwhitened case (complete the inverse of the cholesky decomposition)
     if not whiten:
-        A,_ = torch.gesv(A, Lm.t())
+        A,_ = torch.solve(A, Lm.t())
 
     # construct the conditional mean
     fmean = torch.matmul(A.t(), f)

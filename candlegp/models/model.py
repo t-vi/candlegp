@@ -16,7 +16,6 @@
 import abc
 import torch
 import numpy
-from torch.autograd import Variable
 
 from .. import mean_functions
 from .. import parameter
@@ -111,11 +110,11 @@ class GPModel(torch.nn.Module):
         Xnew.
         """
         mu, var = self.predict_f(Xnew, full_cov=True)
-        jitter = Variable(torch.eye(mu.size(0), out=mu.data.new())) * self.jitter_level
+        jitter = torch.eye(mu.size(0), dtype=mu.dtype, device=mu.device) * self.jitter_level
         samples = []
         for i in range(self.num_latent): # TV-Todo: batch??
-            L = torch.potrf(var[:, :, i] + jitter, upper=False)
-            V = Variable(mu.data.new(L.size(0), num_samples).normal_())
+            L = torch.cholesky(var[:, :, i] + jitter, upper=False)
+            V = torch.randn(L.size(0), num_samples, dtype=L.dtype, device=L.device)
             samples.append(mu[:, i:i + 1] + torch.matmul(L, V))
         return torch.stack(samples, dim=0) # TV-Todo: transpose?
 

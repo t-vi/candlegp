@@ -16,16 +16,13 @@
 import numpy
 import scipy.special
 import torch
-from torch.autograd import Variable
 
 def gammaln(x):
     # attention: Not differentiable!
     if numpy.isscalar(x):
         y = float(scipy.special.gammaln(x))
-    elif isinstance(x,(torch.Tensor, torch.DoubleTensor)):
-        y = type(x)(scipy.special.gammaln(x.numpy()))
-    elif isinstance(x,Variable):
-        y = Variable(type(x.data)(scipy.special.gammaln(x.data.numpy())))
+    elif isinstance(x, torch.Tensor):
+        y = torch.as_tensor(scipy.special.gammaln(x.numpy()), dtype=x.dtype)
     else:
         raise ValueError("Unsupported input type "+str(type(x)))
     return y
@@ -81,7 +78,7 @@ def multivariate_normal(x, mu, L):
     d = x - mu
     if d.dim()==1:
         d = d.unsqueeze(1)
-    alpha,_ = torch.gesv(d, L)
+    alpha,_ = torch.solve(d, L)
     alpha = alpha.squeeze(1)
     num_col = 1 if x.dim() == 1 else x.size(1)
     num_dims = x.size(0)

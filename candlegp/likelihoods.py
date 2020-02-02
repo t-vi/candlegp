@@ -16,14 +16,13 @@
 
 import numpy
 import torch
-from torch.autograd import Variable
 from . import parameter
 from . import quadrature
 from . import densities
 
 class Likelihood(torch.nn.Module):
     def __init__(self, name=None):
-        super(Likelihood, self).__init__()
+        super().__init__()
         self.name = name
         self.num_gauss_hermite_points = 20
 
@@ -86,7 +85,7 @@ class Likelihood(torch.nn.Module):
         Here, we implement a default Gauss-Hermite quadrature routine, but some
         likelihoods (Gaussian, Poisson) will implement specific cases.
         """
-        gh_x, gh_w = quadrature.hermgauss(self.num_gauss_hermite_points, ttype=type(Fmu.data))
+        gh_x, gh_w = quadrature.hermgauss(self.num_gauss_hermite_points, dtype=Fmu.dtype)
 
         gh_w = gh_w.reshape(-1, 1) / float(numpy.sqrt(numpy.pi))
         shape = Fmu.size()
@@ -117,7 +116,7 @@ class Likelihood(torch.nn.Module):
         likelihoods (Gaussian, Poisson) will implement specific cases.
         """
 
-        gh_x, gh_w = quadrature.hermgauss(self.num_gauss_hermite_points, ttype=type(Fmu.data))
+        gh_x, gh_w = quadrature.hermgauss(self.num_gauss_hermite_points, dtype=Fmu.dtype)
         gh_x = gh_x.view(1, -1)
         gh_w = gh_w.view(-1, 1) / float(numpy.pi)**0.5
         shape = Fmu.size()
@@ -143,9 +142,9 @@ class Likelihood(torch.nn.Module):
 
 
 class Gaussian(Likelihood):
-    def __init__(self, ttype=torch.FloatTensor):
+    def __init__(self, dtype=torch.float32):
         Likelihood.__init__(self)
-        self.variance = parameter.PositiveParam(1.0, ttype=ttype)
+        self.variance = parameter.PositiveParam(torch.tensor([1.0], dtype=dtype), dtype=dtype)
 
     def logp(self, F, Y):
         return densities.gaussian(F, Y, self.variance.get())
@@ -251,13 +250,13 @@ class RobustMax(object):
 
     def __call__(self, F):
         _,i = torch.max(F.data, 1)
-        one_hot = Variable(F.data.new(F.size(0), self.num_classes).fill_(self._eps_K1).scatter_(1,i,1-self.epsilon))
+        one_hot = torch.full((F.size(0), self.num_classes), self._eps_K1, dtype=F.dtype, device=F.device).scatter_(1, i, 1 - self.epsilon)
         return one_hot
 
     def prob_is_largest(self, Y, mu, var, gh_x, gh_w):
         Y = Y.long()
         # work out what the mean and variance is of the indicated latent function.
-        oh_on = Variable(mu.data.new(Y.numel(), self.num_classes).fill_(0.).scatter_(1,Y.data,1))
+        oh_on = torch.zeros(Y.numel(), self.num_classes, dtype=mu.dtype, device=mu.device).scatter_(1, Y.data, 1)
         mu_selected  = (oh_on * mu ).sum(1)
         var_selected = (oh_on * var).sum(1)
 
@@ -271,7 +270,7 @@ class RobustMax(object):
         cdfs = cdfs * (1 - 2e-4) + 1e-4
 
         # blank out all the distances on the selected latent function
-        oh_off = Variable(mu.data.new(Y.numel(), self.num_classes).fill_(1.).scatter_(1,Y.data,0))
+        oh_off = torch.ones(Y.numel(), self.num_classes, dtype=mu.dtype, device=mu.device).scatter_(1,Y.data,0)
         cdfs = cdfs * oh_off.unsqueeze(2) + oh_on.unsqueeze(2)
 
         # take the product over the latent functions, and the sum over the GH grid.
@@ -309,7 +308,7 @@ class MultiClass(Likelihood):
 
     def variational_expectations(self, Fmu, Fvar, Y):
         if isinstance(self.invlink, RobustMax):
-            gh_x, gh_w = quadrature.hermgauss(self.num_gauss_hermite_points, ttype=type(Fmu.data))
+            gh_x, gh_w = quadrature.hermgauss(self.num_gauss_hermite_points, dtype=Fmu.dtype)
             p = self.invlink.prob_is_largest(Y, Fmu, Fvar, gh_x, gh_w)
             return p * numpy.log(1 - self.invlink.epsilon) + (1. - p) * numpy.log(self.invlink._eps_K1)
         else:
@@ -318,7 +317,7 @@ class MultiClass(Likelihood):
     def predict_mean_and_var(self, Fmu, Fvar):
         if isinstance(self.invlink, RobustMax):
             # To compute this, we'll compute the density for each possible output
-            possible_outputs = [Variable(Fmu.data.new().long().resize_(Fmu.size(0),1).fill_(i)) for i in range(self.num_classes)]
+            possible_outputs = [torch.full((Fmu.size(0), 1), i, dtype=torch.long, device=Fmu.device) for i in range(self.num_classes)]
             ps = [self._predict_non_logged_density(Fmu, Fvar, po) for po in possible_outputs]
             ps = torch.stack([p.view(-1) for p in ps],1)
             return ps, ps - ps**2
@@ -330,7 +329,7 @@ class MultiClass(Likelihood):
 
     def _predict_non_logged_density(self, Fmu, Fvar, Y):
         if isinstance(self.invlink, RobustMax):
-            gh_x, gh_w = quadrature.hermgauss(self.num_gauss_hermite_points, ttype=type(Fmu.data))
+            gh_x, gh_w = quadrature.hermgauss(self.num_gauss_hermite_points, dtype=Fmu.dtype)
             p = self.invlink.prob_is_largest(Y, Fmu, Fvar, gh_x, gh_w)
             return p * (1 - self.invlink.epsilon) + (1. - p) * (self.invlink._eps_K1)
         else:

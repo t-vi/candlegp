@@ -15,15 +15,7 @@
 
 
 import torch
-from torch.autograd import Variable
 import numpy
-
-def is_finite(x):
-    INF = x.data.new(1).fill_(numpy.inf)
-    if isinstance(x, Variable):
-        return Variable((x.data<INF) & (x.data > -INF))
-    else:
-        return (x<INF) & (x>-INF)
 
 def hmc_sample(model, num_samples, epsilon, lmin=1, lmax=2, thin=1, burn=0):
     """
@@ -56,10 +48,10 @@ def hmc_sample(model, num_samples, epsilon, lmin=1, lmax=2, thin=1, burn=0):
     def thinning(thin_iterations, epsilon, lmin, lmax):
         logprob, grads = logprob_grads()
         for i in range(thin):
-            xs_prev = [p.data.clone() for p in model.parameters() if p.requires_grad]
+            xs_prev = [p.detach().clone() for p in model.parameters() if p.requires_grad]
             grads_prev = grads
             logprob_prev = logprob
-            ps_init = [Variable(xs_prev[0].new(*p.size()).normal_()) for p in model.parameters() if p.requires_grad]
+            ps_init = [torch.randn_like(p) for p in model.parameters() if p.requires_grad]
             ps = [p + 0.5 * epsilon * grad for p,grad in zip(ps_init, grads_prev)]
 
             max_iterations = int((torch.rand(1)*(lmax+1-lmin)+lmin)[0])
@@ -69,9 +61,10 @@ def hmc_sample(model, num_samples, epsilon, lmin=1, lmax=2, thin=1, burn=0):
             i_ps = 0
             while proceed and i_ps < max_iterations:
                 for x, p in zip([p for p in model.parameters() if p.requires_grad], ps):
-                    x.data += epsilon*p.data
+                    with torch.no_grad():
+                        x += epsilon * p
                 _, grads = logprob_grads()
-                proceed = torch.stack([is_finite(grad).prod() for grad in grads], dim=0).prod().data[0]
+                proceed = torch.stack([torch.isfinite(grad).all() for grad in grads], dim=0).all()
                 if proceed:
                     ps = [p + epsilon * grad for p, grad in zip(ps, grads)]
                 i_ps += 1
@@ -85,14 +78,15 @@ def hmc_sample(model, num_samples, epsilon, lmin=1, lmax=2, thin=1, burn=0):
                 log_kinetic_energy_prev = 0
                 for p in ps_init:
                     log_kinetic_energy_prev += (p**2).sum()
-                log_accept_ratio = (logprob - 0.5 * log_kinetic_energy - logprob_prev + 0.5 * log_kinetic_energy_prev).data[0]
+                log_accept_ratio = (logprob - 0.5 * log_kinetic_energy - logprob_prev + 0.5 * log_kinetic_energy_prev).item()
                 logu = torch.randn(1).log()[0]
                 if logu >= log_accept_ratio: # reject
                     proceed = False
                 # otherwise keep new
             if not proceed:
                 for p,x_prev in zip([p for p in model.parameters() if p.requires_grad], xs_prev):
-                    p.data = x_prev
+                    with torch.no_grad():
+                        p.copy_(x_prev)
                 logprob = logprob_prev
                 grads = grads_prev
 
@@ -105,6 +99,6 @@ def hmc_sample(model, num_samples, epsilon, lmin=1, lmax=2, thin=1, burn=0):
     tracks = []
     for i in range(num_samples):
         logprob = thinning(thin, epsilon, lmin, lmax)
-        tracks.append([logprob.data[0]]+[p.get().data.clone() for p in model.parameters()])
+        tracks.append([logprob.item()]+[p.get().detach().clone() for p in model.parameters()])
 
     return list(zip(*tracks))
