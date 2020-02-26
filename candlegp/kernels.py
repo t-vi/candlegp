@@ -37,7 +37,7 @@ class Kern(torch.nn.Module):
         If active dims is None, it effectively defaults to range(input_dim),
         but we store it as a slice for efficiency.
         """
-        super(Kern, self).__init__()
+        super().__init__()
         self.name = name
         self.input_dim = int(input_dim)
         if active_dims is None:
@@ -189,16 +189,30 @@ class Kern(torch.nn.Module):
 
 class Static(Kern):
     """
-    Kernels who don't depend on the value of the inputs are 'Static'.  The only
+    Kernels that do not depend on the value of the inputs are 'Static'.  The only
     parameter is a variance.
     """
 
     def __init__(self, input_dim, variance=1.0, active_dims=None, name=None):
-        super(Static, self).__init__(input_dim, active_dims, name=name)
+        super().__init__(input_dim, active_dims, name=name)
         self.variance = parameter.PositiveParam(variance)
 
     def Kdiag(self, X, presliced=False):
         return self.variance.get().expand(X.size(0))
+
+
+class Linear(Kern):
+    def __init__(self, input_dim, variance=1.0, active_dims=None, name=None):
+        super().__init__(input_dim, active_dims, name=name)
+        self.variance = parameter.PositiveParam(variance)
+
+    def K(self, X, X2=None, presliced=False):
+        if X2 is None:
+            X2 = X
+        return torch.mm(X * self.variance.get(), X2.t())
+
+    def Kdiag(self, X, presliced=False):
+        return ((X**2) * self.variance.get()).sum(1)
 
 
 class White(Static):
